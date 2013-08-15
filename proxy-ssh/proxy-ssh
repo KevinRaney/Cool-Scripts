@@ -1,0 +1,82 @@
+#!/bin/sh
+# proxy-ssh - run ssh or scp through a socks proxy with the help of netcat.
+# THIs avoids needing to SSH through the proxy host to reach other hosts on your network.
+#
+# Port 1080 is used as the proxy port, the netcat default and a standard.
+#
+#
+# Some variables you may want to adjust:
+# THe proxy host:
+proxy_host='159.189.177.137'
+# Define the command to start the proxy.
+# This variable is used both when starting and killing the proxy connection.
+# SSH flags used here are:# -D Define the proxy.
+# -f Requests ssh to go to background just before command execution.
+# -N Do not execute a remote command.
+# -q quiet, do not print banner.
+proxy_command="ssh -D localhost:1080 -f -N -q $proxy_host"
+
+
+# Function to see whether the proxy connection is listening on localhost:1080
+# IF it is not, start the proxy.
+function verify_proxy_connection () {
+# Look for localhost:1080 listening in netstat output.
+netstat -an |grep '127.0.0.1.1080         *.*                    LISTEN' >/dev/null
+if [ $? -gt 0 ]
+then
+echo "Proxy to $proxy_host is not running, starting it..."
+$proxy_command
+
+# Make sure the ssh command, to the proxy, succeeded.
+if [ $? -gt 0 ]
+then
+echo "SSH proxy failed to start, exiting."
+exit 1
+fi
+
+echo "Proxy to $proxy_host started."
+echo "To kill this proxy connection later, run: $0 -killproxy"
+fi
+} # verify_proxy_connection
+
+##########
+
+# Hack to kill the SSH proxy process, only if -killproxy is the first argument to this script.
+if [ "$1" == "-killproxy" ]
+then
+echo "FInding and killing ssh proxy to $proxy_host"
+proxy_pid=`ps -ax -o pid -o args |grep "$proxy_command" |grep -iv grep|awk '{print $1};'`
+if [ "x$proxy_pid" != "x" ]
+then
+echo "Found and killing this process:"
+ps -p$proxy_pid -o pid -o args
+kill $proxy_pid
+else
+echo "Did not find the proxy SSH connection. :("
+echo "This is the running process I was looking for:"
+echo $proxy_command
+exit 1
+fi
+exit
+fi
+
+# Since -killproxy was not passed as the first parameter, cary on.
+
+verify_proxy_connection
+
+# SSH or SCP through the proxy, passing all arguments to ssh.
+# Determine whether we were called pssh or pscp
+case `basename $0` in
+pssh)
+ssh -o "ProxyCommand /usr/bin/nc -x localhost %h %p" $*
+;;
+pscp)
+scp -o "ProxyCommand /usr/bin/nc -x localhost %h %p" $*
+;;
+*)
+echo "ERROR: This script was called as $0, but was expecting to be called either pssh or psxcp. Exiting."
+exit 1
+;;
+esac
+
+
