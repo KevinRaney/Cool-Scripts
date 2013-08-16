@@ -6,9 +6,9 @@
 
 # Variables, you may want to adjust:
 # Enable debug output, usually commented out / not set
-debug='1'
+#debug='1'
 # Version of this script
-script_version='1.1'
+script_version='1.2'
 # Where the text file to speak and other temporary files will go
 temp_dir="/tmp"
 # Name of the file to speak, should be in $temp_dir.
@@ -38,8 +38,9 @@ fi
 function random_sleep {
 # SLeep a random number of seconds, at least a minute., max 6 minutes
 # 32767/300 seconds = 109
-#local seconds=`expr 60 + $((RANDOM/109))`
-local seconds=20
+local seconds=`expr 60 + $((RANDOM/109))`
+# ONly for debugging:
+#local seconds=10
 debug "Sleeping for $seconds seconds"
 /bin/sleep $seconds
 } # random_sleep
@@ -125,6 +126,7 @@ debug "`basename $0`, version $script_version"
 # Delete any old say-file so the script does not speak something old.
 if [ -r $sayfile_name ]
 then
+debug "Previous sayh-file exists, deleting it."
 rm -f $sayfile_name >/dev/null
 fi
 
