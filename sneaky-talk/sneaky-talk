@@ -6,9 +6,9 @@
 
 # Variables, you may want to adjust:
 # Enable debug output, usually commented out / not set
-#debug='1'
+debug='1'
 # Version of this script
-script_version='1.2'
+script_version='1.2.1'
 # Where the text file to speak and other temporary files will go
 temp_dir="/tmp"
 # Name of the file to speak, should be in $temp_dir.
@@ -39,8 +39,11 @@ function random_sleep {
 # SLeep a random number of seconds, at least a minute., max 6 minutes
 # 32767/300 seconds = 109
 local seconds=`expr 60 + $((RANDOM/109))`
-# ONly for debugging:
-#local seconds=10
+if [ $debug ]
+then
+# WHen debugging, do not randomly sleep, sleep for a fixed amount of time.
+local seconds=15
+fi
 debug "Sleeping for $seconds seconds"
 /bin/sleep $seconds
 } # random_sleep
@@ -123,6 +126,15 @@ curl ${full_curl_options}
 # ##### Main Script #####
 
 debug "`basename $0`, version $script_version"
+
+# First verify there isn't another instance of this script already running.
+ps -ax -o args |grep "bash $0" |grep -iv grep >/dev/null 2>&1
+if [ $? -eq 0 ]
+then
+debug "This script is already running, so this copy is exiting."
+exit
+fi
+
 # Delete any old say-file so the script does not speak something old.
 if [ -r $sayfile_name ]
 then
