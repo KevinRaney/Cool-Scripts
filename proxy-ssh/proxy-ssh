@@ -4,6 +4,11 @@
 #
 # Port 1080 is used as the proxy port, the netcat default and a standard.
 #
+# TO use this script:
+# 1. Copy the script to somewhere in your path
+# 2. ln -s proxy-ssh pssh;ln -s proxy-ssh pscp
+# 3. Set the proxy_host variable (below).
+# 4. Use pssh and pscp commands in place of ssh and scp, when you want proxied connectoins.
 #
 # Some variables you may want to adjust:
 # THe proxy host:
