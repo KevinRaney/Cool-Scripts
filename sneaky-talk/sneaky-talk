@@ -6,7 +6,12 @@
 
 # Variables, you may want to adjust:
 # Enable debug output, usually commented out / not set
-debug='1'
+#debug='1'
+# IF the -debug option is passed as the first argument, enable debugging.
+if [ "$1" == "-debug" ]
+then
+debug=1
+fi
 # Version of this script
 script_version='1.2.1'
 # Where the text file to speak and other temporary files will go
@@ -128,7 +133,7 @@ curl ${full_curl_options}
 debug "`basename $0`, version $script_version"
 
 # First verify there isn't another instance of this script already running.
-ps -ax -o args |grep "bash $0" |grep -iv grep >/dev/null 2>&1
+ps -ax -o pid -o args |grep "bash $0" | grep -iv "$$"|grep -iv grep >/dev/null 2>&1
 if [ $? -eq 0 ]
 then
 debug "This script is already running, so this copy is exiting."
