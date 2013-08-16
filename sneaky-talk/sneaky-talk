@@ -17,7 +17,7 @@ sayfile_name="${temp_dir}/say.txt"
 # This URL is passed to curl, so can be HTTP, FTP, NFS, Etc.
 sayfile_url="http://ivanfetch.com/sneaky-talk/sayfile.txt"
 # URL to fetch new versions of this script
-script_url='http://ivanfetch.com/sneaky-talk/sneaky-talk'
+#script_url='http://ivanfetch.com/sneaky-talk/sneaky-talk'
 # Options to the curl command, not including the output file.
 # -s = silent, -f = fail quietly, -o = output file name
 curl_options="-s -f"
@@ -72,6 +72,11 @@ fi
 
 
 function update_script {
+# IF $script_url is not set, no point in updating.
+if [ "x${update_url}" == "x" ]
+then
+debug "Not attempting to update this script, as the update_url variable is not set."
+else
 # UPdate the script from an online copy, if a different version is available.
 local temp_file=${temp_dir}/`basename $0`
 debug "Determining whether the script has been updated online."
@@ -97,6 +102,7 @@ else
 # NO temporary script file, DL failed?
 debug "Perhaps the download failed, there is no file $temp_file"
 debug "The script will not be updated."
+fi
 fi
 } # script_changed
 
