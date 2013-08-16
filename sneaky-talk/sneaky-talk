@@ -1,0 +1,145 @@
+#!/bin/bash
+# ON a random interval, download and speak the contents of a file if that file has changed.
+# THe file is spoken using the OSX say command.
+# This script is also updated and relaunched, if an online copy is different from the running copy.
+# Note: IF you change this local script and run it, your changes will be overwritten by the online copy!
+
+# Variables, you may want to adjust:
+# Enable debug output, usually commented out / not set
+debug='1'
+# Version of this script
+script_version='1.1'
+# Where the text file to speak and other temporary files will go
+temp_dir="/tmp"
+# Name of the file to speak, should be in $temp_dir.
+sayfile_name="${temp_dir}/say.txt"
+# Full URL to fetch the file, including file name.
+# This URL is passed to curl, so can be HTTP, FTP, NFS, Etc.
+sayfile_url="http://ivanfetch.com/sneaky-talk/sayfile.txt"
+# URL to fetch new versions of this script
+script_url='http://ivanfetch.com/sneaky-talk/sneaky-talk'
+# Options to the curl command, not including the output file.
+# -s = silent, -f = fail quietly, -o = output file name
+curl_options="-s -f"
+
+
+# ##### functions #####
+
+
+function debug {
+# Output debugging info if the debug variable > 0
+if [ $debug ]
+then
+echo "Debug: $*"
+fi
+} # debug
+
+
+function random_sleep {
+# SLeep a random number of seconds, at least a minute., max 6 minutes
+# 32767/300 seconds = 109
+#local seconds=`expr 60 + $((RANDOM/109))`
+local seconds=20
+debug "Sleeping for $seconds seconds"
+/bin/sleep $seconds
+} # random_sleep
+
+
+function sayfile_changed {
+# Has the say-file changed, from the last md5 which was saved?
+local temp_file=${sayfile_name}
+debug "Comparing md5 for file $temp_file, with it's last md5"
+if [ -r $temp_file ]
+then
+local current_md5=`md5 $temp_file`
+debug "CUrrent md5: ${current_md5}"
+debug "Previous md5: ${last_sayfile_md5}"
+if [ "$last_sayfile_md5" == "$current_md5" ]
+then
+debug "MD5 matches, say-file unchanged"
+return 1
+else
+debug "MD5 does not match, say-file has changed"
+# Update the saved md5, with the most current one.
+last_sayfile_md5=$current_md5
+return 0
+fi
+else
+# say-file doesn't even exist. Failed DL?
+debug "The say-file does not exist. Failed download? Nothing to compare for now."
+fi
+} # sayfile_changed
+
+
+function update_script {
+# UPdate the script from an online copy, if a different version is available.
+local temp_file=${temp_dir}/`basename $0`
+debug "Determining whether the script has been updated online."
+# FIrst download the script to $temp_file
+get_file ${script_url} ${temp_file}
+
+# IF we have a file, then compare it to the running script.
+if [ -r $temp_file ]
+then
+debug "Comparing $0 and $temp_file"
+diff $0 $temp_file >/dev/null
+if [ $? -eq 0 ]
+then
+debug "The script has not changed from the online version."
+else
+debug "THe script has changed from the online version."
+debug "Copying $temp_file to $0 and re-running $0. . ."
+cp -f $temp_file $0 >/dev/null
+# Exec keeps the current process ID.
+exec $0
+fi
+else
+# NO temporary script file, DL failed?
+debug "Perhaps the download failed, there is no file $temp_file"
+debug "The script will not be updated."
+fi
+} # script_changed
+
+function get_file {
+# Download a file using curl.
+# Arguments: URL, destination file name
+local url=$1
+local save_file=$2
+debug "Downloading from URL ${url}, to file ${save_file}"
+# Combine the curl options, with the rest of our curl command-line.
+local full_curl_options="${curl_options} -o ${save_file} ${url}"
+debug "Running curl with options: ${full_curl_options}"
+curl ${full_curl_options}
+} # get_file
+
+
+# ##### Main Script #####
+
+debug "`basename $0`, version $script_version"
+# Delete any old say-file so the script does not speak something old.
+if [ -r $sayfile_name ]
+then
+rm -f $sayfile_name >/dev/null
+fi
+
+# SLeep initially, so nothing is spoken as soon as this script is run.
+random_sleep
+
+# Loop for ever.
+while (true)
+do
+# Update the script if a different copy is online.
+update_script
+debug "Downloading say-file."
+get_file ${sayfile_url} ${sayfile_name}
+if sayfile_changed ${sayfile_name}
+then
+debug "Speaking contents of ${sayfile_name}: `cat ${sayfile_name}`"
+say -f ${sayfile_name}
+else
+debug "I've got nothing to say, yet..."
+fi
+# Sleep again before the loop repeats.
+random_sleep
+done
+
