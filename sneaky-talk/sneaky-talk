@@ -2,7 +2,7 @@
 # ON a random interval, download and speak the contents of a file if that file has changed.
 # THe file is spoken using the OSX say command.
 # This script is also updated and relaunched, if an online copy is different from the running copy.
-# Note: IF you change this local script and run it, your changes will be overwritten by the online copy!
+# Note: IF you change this local script and run it, your changes may be overwritten by the online copy!
 
 # Variables, you may want to adjust:
 # Enable debug output, usually commented out / not set
@@ -13,16 +13,20 @@ then
 debug=1
 fi
 # Version of this script
-script_version='1.2.1'
+script_version='1.2.2'
 # Where the text file to speak and other temporary files will go
 temp_dir="/tmp"
-# Name of the file to speak, should be in $temp_dir.
+# Say-file - Name of the file to speak, should be in $temp_dir.
 sayfile_name="${temp_dir}/say.txt"
-# Full URL to fetch the file, including file name.
+# Full URL to fetch the say-file, including file name.
 # This URL is passed to curl, so can be HTTP, FTP, NFS, Etc.
-sayfile_url="http://ivanfetch.com/sneaky-talk/sayfile.txt"
+# Including the output of the whois command, sets the file name to the user-name running this script.
+sayfile_url="http://ivanfetch.com/sneaky-talk/`whoami`.txt"
 # URL to fetch new versions of this script
+# IF this is not set, the script will not be auto-updated.
 #script_url='http://ivanfetch.com/sneaky-talk/sneaky-talk'
+# Self-destruct string - IF the say-file contains only this string, this script will delete itself.
+selfdestruct_string="I am retiring, goodbye."
 # Options to the curl command, not including the output file.
 # -s = silent, -f = fail quietly, -o = output file name
 curl_options="-s -f"
@@ -157,6 +161,18 @@ do
 update_script
 debug "Downloading say-file."
 get_file ${sayfile_url} ${sayfile_name}
+
+# Look for the self-destruct string in the say-file.
+if [ "`cat ${sayfile_name}`" == "${selfdestruct_string}" ]
+then
+debug "Say-file contains self-destruct string. Deleting this script, $0"
+# Perhaps copy the script to $temp_dir first, just in case we end up deleting something we shouldn't
+cp $0 ${temp_dir}
+rm $0
+exit
+fi
+
+# IF the contents of the say-file has changed, speak it's contents.
 if sayfile_changed ${sayfile_name}
 then
 debug "Speaking contents of ${sayfile_name}: `cat ${sayfile_name}`"
