@@ -26,6 +26,8 @@ selfdestruct_string="I am retiring, goodbye."
 # Options to the curl command, not including the output file.
 # -s = silent, -f = fail quietly, -o = output file name
 curl_options="-s -f"
+# Options to pass to the say command, useful if you want to set the voice or rate.
+say_options='-r 300'
 # The command to be placed in a shell initialization file, if the -i (install) command-line option is usednstall_location.
 # THis command should fail gracefully if the script no longer exists (if it was self-destructed).
 # Get the full path to $0, in case the script was run with a relative path like ./scriptName
@@ -104,6 +106,10 @@ install_cmd, the command to be placed in a shell inintialization file, if the -i
 install_comment, a comment to be placed above install_cmd (so the user knows how their shel linitialization file got edited) - $install_comment
 
 install_location, the shell initialization file to place install_cmd - $install_location
+
+curl_options, options to pass to the curl command - $curl_options
+
+say_options, options to pass to the say command (useful to set the voice or speech rate) - $say_options
 
 EOF
 exit
@@ -306,7 +312,7 @@ fi
 if sayfile_changed ${sayfile_name}
 then
 debug "Speaking contents of ${sayfile_name}: `cat ${sayfile_name}`"
-say -f ${sayfile_name}
+say $say_options -f ${sayfile_name}
 else
 debug "I've got nothing to say, yet..."
 fi
