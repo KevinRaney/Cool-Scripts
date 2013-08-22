@@ -27,7 +27,7 @@ selfdestruct_string="I am retiring, goodbye."
 # -s = silent, -f = fail quietly, -o = output file name
 curl_options="-s -f"
 # Options to pass to the say command, useful if you want to set the voice or rate.
-say_options='-r 300'
+say_options='-v Vicki'
 # The command to be placed in a shell initialization file, if the -i (install) command-line option is usednstall_location.
 # THis command should fail gracefully if the script no longer exists (if it was self-destructed).
 # Get the full path to $0, in case the script was run with a relative path like ./scriptName
