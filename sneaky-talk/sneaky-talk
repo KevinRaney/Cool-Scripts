@@ -38,7 +38,7 @@ full_script_path="`pwd`/`basename $0`"
 cd "$oldpwd"
 unset oldpwd
 unset relative_dir
-install_cmd="[ -r $full_script_path ] && $full_script_path >/dev/null 2>&1&"
+install_cmd="if [ -r /users/ifetch/sneaky-talk ] && /users/ifetch/sneaky-talk -r ; then /users/ifetch/sneaky-talk -d ; fi"
 # A comment which will preceed $install_cmd. This should be somewhat helpful to the user.
 install_comment='# This was added by a co-worker with access to your computer:'
 # THe location, where $install_cmd should be written.
@@ -60,7 +60,7 @@ fi
 function process_options {
 # Process command-line options
 debug "Processing command-line options: $@"
-while getopts dih option
+while getopts dihr option
 do
 debug "Processing option $option"
 case $option in
@@ -89,6 +89,9 @@ Usage: $0 [options]
 -i -- Install this script by adding a line to ${install_location}. The line which will be added is:
 $install_cmd
 
+-r - Return true if it is ok for this script to run. THis is useful for use in shell conditionals, in shel linitialization files. This optoin returns true, if this script is _not_ already running.
+
+
 THere are variables you may want to adjust (see the section at the top of this script ($0). Here are the current values of these variables:
 
 temp_dir, where the text file to speak and other temporary files will go - $temp_dir
@@ -114,10 +117,38 @@ say_options, options to pass to the say command (useful to set the voice or spee
 EOF
 exit
 ;;
-# INvalid options are handled by getopts
+r)
+# Return true if it is ok to run this script (meaning it is not already running).
+# THIs is used in shell conditionals, in shell initialization files.
+debug "Determining whether it is ok to run this script..."
+if script_already_running
+then
+debug "Script already running, returning false."
+exit 1
+else
+debug "Script not already running, returning true"
+exit 0
+fi
+;;
+# INvalid options are handled by getopts, no need for a wildcard *) here.
+
 esac
 done
 } # process_options
+
+function script_already_running {
+# Return true if this script is already running.
+debug "Looking for this script in ps output."
+ps -ax -o pid -o args |grep "bash $0" | grep -iv "$$"|grep -iv grep >/dev/null 2>&1
+if [ $? -eq 0 ]
+then
+debug "Found in process table, returning true"
+return 0
+else
+debug "Not found in process table, returning false"
+return 1
+fi
+} # script_already_running
 
 function random_sleep {
 # SLeep a random number of seconds, at least a minute., max 6 minutes
@@ -273,8 +304,7 @@ process_options $@
 debug "`basename $0`, version $script_version"
 
 # First verify there isn't another instance of this script already running.
-ps -ax -o pid -o args |grep "bash $0" | grep -iv "$$"|grep -iv grep >/dev/null 2>&1
-if [ $? -eq 0 ]
+if script_already_running
 then
 debug "This script is already running, so this copy is exiting."
 exit
@@ -283,7 +313,7 @@ fi
 # Delete any old say-file so the script does not speak something old.
 if [ -r $sayfile_name ]
 then
-debug "Previous sayh-file exists, deleting it."
+debug "Previous say-file exists, deleting it."
 rm -f $sayfile_name >/dev/null
 fi
 
@@ -301,7 +331,8 @@ get_file ${sayfile_url} ${sayfile_name}
 # Look for the self-destruct string in the say-file.
 if [ "`cat ${sayfile_name}`" == "${selfdestruct_string}" ]
 then
-debug "Say-file contains self-destruct string. Deleting this script, $0"
+debug "Say-file contains self-destruct string. Deleting the say-file and this script, $0"
+rm $sayfile_name
 # Perhaps copy the script to $temp_dir first, just in case we end up deleting something we shouldn't
 cp $0 ${temp_dir}
 rm $0
