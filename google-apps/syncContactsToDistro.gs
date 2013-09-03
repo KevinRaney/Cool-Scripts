@@ -1,15 +1,19 @@
+function deleteMembersInDistro() {
+  var distroName = 'newstest'
+  var group = GroupsManager.getGroup(distroName);
+  var groupMembers = group.getAllMembers();
+  
+  for (var member in groupMembers) {
+    group.removeMember(groupMembers[member]);
+  }
+}
+
 function syncContactsToDistro() {
  
   var distroName = 'newstest'
   var group = GroupsManager.getGroup(distroName);
-  var groupMembers = group.getAllMembers()
-  var allContacts = ContactsApp.getContacts()
+  var allContacts = ContactsApp.getContacts();
 
-  //delete all existing group members
-  for (var member in groupMembers) {
-    group.removeMember(groupMembers[member]);
-  }
-  
   //add email addresses back as members from contacts
   for (var contact in allContacts) {
     var emails = allContacts[contact].getEmails()
