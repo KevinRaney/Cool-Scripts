@@ -1,0 +1,48 @@
+#!/bin/sh
+# Configure/enable/disable an SSH-based SOCKS5 proxy in OSX Network Preferences.
+#
+# THe host and port the proxy will listen on, separated by a space.
+proxy_host='localhost 3128'
+# THe network interface the proxy should be configured for.
+proxy_interface='Ethernet'
+#
+# ONce you ahve enabled this proxy, you then need to run:
+# ssh -D localhost:3128
+# Add the options -f and -N to  the ssh command, if you want to have the ssh command go to the background,
+#    however you will need to kill the ssh connection by hand later.
+#
+case $1 in
+setup)
+# THe off in the below command, means no authentication.
+echo "Setting up proxy to $proxy_host on the $proxy_interface interface"
+networksetup -setsocksfirewallproxy $proxy_interface $proxy_host off
+;;
+on|enable)
+echo "ENabling the proxy already defined in Network Preferences..."
+echo "Remember you may need to adjust your browser to use $proxy_host"
+# Enable the already defined SOCKS5 proxy in network preferences
+sudo networksetup setsocksfirewallproxystate $proxy_interface on
+;;
+off|disable)
+echo "Disabling the proxy defined in Network Preferences..."
+echo "Remember, you may need to adjust your browser to stop using a proxy of $proxy_host"
+# Uncheck; disable SOCKS5 proxy in network preferences
+sudo networksetup setsocksfirewallproxystate $proxy_interface off
+;;
+state|status)
+networksetup getsocksfirewallproxy $proxy_interface
+;;
+*)
+echo "Usage: $0 setup|on|off|status"
+echo
+echo "THis script adjusts the proxy settings in Mac OSX Network Preferences."
+echo
+echo "Options:"
+echo
+echo "on|enable - Enable the proxy, this basically checks the proxy's checkbox in Network PReferences."
+echo "off|disable - Disable the proxy, this basically unchecks the proxy's checkbox in Network PReferences."
+echo "status|state - Display the state of the proxy configuration for the $proxy_interface interface."
+echo "setup - COnfigure a SOCKS5 proxy for the $proxy_interface interface, to $proxy_host - you can set the proxy_interface and proxy_host environment variable at the top of this script."
+;;
+esac
+
