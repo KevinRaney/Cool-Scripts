@@ -1,10 +1,14 @@
 # OSX-SOCKS5-Proxy - Manage SOCKS5 Proxy Settings
 ## Purpose
-Use the command-line to setup, enable, disable, or get the status of SOCKS5 proxy settings in the Mac OSX Network Preferences.
+Use the command-line to setup, enable, disable, or get the status of SOCKS5 proxy settings in the Mac OSX Network Preferences, including the managment of an SSH connection which provides the SOCKS5 proxy.
 ## Installation and Use
 * Copy the proxy script to a directory in your path.
-* Optionally edit the script to set the proxy_interface and proxy_host variables - by default, it configures a proxy of localhost:3128, on the Ethernet network interface.
-* Before using the localhost:3128 proxy, start your SOCKS5 proxy. Using SSH, you can do this with:
-ssh -D localhost:3128 -f -N remote_host_name
 * Run the proxy script with no arguments, to get usage information.
+* Create a configuration file, ~/.s5proxyrc, containing atleast
+ssh_host="server.com"
+- This is the SSH server which your proxied traffic will go through.
+* COnfigure the Mac OSX proxy preferences by running: s5proxy setup
+* ENable the proxy with: s5proxy on
+* Get proxy status, including whether the SSH connection is established, with: s5proxy status
+* Disable the proxy when done using it, with: s5proxy off
 
