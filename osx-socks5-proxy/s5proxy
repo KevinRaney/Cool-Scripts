@@ -1,48 +1,190 @@
-#!/bin/sh
+#!/bin/bash
 # Configure/enable/disable an SSH-based SOCKS5 proxy in OSX Network Preferences.
+# This script also manages the SOCKS5 SSH connection (which sets up the proxy) for you.
 #
-# THe host and port the proxy will listen on, separated by a space.
-proxy_host='localhost 3128'
+# Some variables you may want to adjust:
+# A configuration file which this script will source 
+# This file should contain variable overrides, of the form:
+# ssh_host='your-actual-hostname.com'
+# The eval used here, expands ~ correctly.
+script_name=`basename $0`
+config_file=`eval echo "~/.${script_name}rc"`
+unset script_name
+## The SSH proxy host.
+ssh_host='proxy.yourdomain.com'
 # THe network interface the proxy should be configured for.
 proxy_interface='Ethernet'
+# THe address the SOCS5 proxy will listen on.
+# THis should usually be localhost, unless you want to share your proxy.
+listen_address='localhost'
+# THe port the proxy will listen on, usually 3128.
+listen_port='3128'
 #
-# ONce you ahve enabled this proxy, you then need to run:
-# ssh -D localhost:3128
-# Add the options -f and -N to  the ssh command, if you want to have the ssh command go to the background,
-#    however you will need to kill the ssh connection by hand later.
-#
-case $1 in
-setup)
+# Source the config file to override any defaults.
+if [ -r $config_file ]
+then
+. $config_file
+fi
+
+# Define the command to start the proxy.
+# This variable is used both when starting and killing the proxy connection.
+# SSH flags used here are:# -D Define the proxy.
+# -f Requests ssh to go to background just before command execution.
+# -N Do not execute a remote command.
+# -q quiet, do not print banner.
+ssh_proxy_command="ssh -D ${listen_address}:${listen_port} -f -N -q $ssh_host"
+
+
+# ##### Functions #####
+
+function ssh_proxy_running {
+# Function to see whether the SSH proxy was established
+# Returns: true or false.
+
+# First get the friendly name of listen_port.
+local listen_port_name=`grep -i ${listen_port}/tcp /etc/services |awk '{print $1};'` || listen_port_name=$listen_port
+# Look for $listen_address:$listen_port listening in netstat output
+netstat -a |grep -i listen |grep "${listen_address}.${listen_port_name}" >/dev/null
+if [ $? -gt 0 ]
+then
+# return false
+return 1
+else
+# Return true
+return 0
+fi
+} # ssh_proxy_running
+
+
+function start_ssh_proxy {
+# Start the SSH SOCS5 proxy.
+
+$ssh_proxy_command
+
+# Make sure the ssh command, to the proxy, succeeded.
+if [ $? -gt 0 ]
+then
+echo "SSH proxy failed to start, exiting."
+exit 1
+fi
+
+echo "Proxy to $ssh_host started."
+echo "To kill this proxy connection later, run: $0 off or $0 killproxy"
+} # start_ssH_proxy
+
+
+function kill_ssh_proxy {
+# Kill the ssh command to the ssh (proxy) host.
+echo "FInding and killing ssh proxy to $ssh_host"
+local proxy_pid=`ps -ax -o pid -o args |grep "$ssh_proxy_command" |grep -iv grep|tail -1|awk '{print $1};'`
+if [ "x$proxy_pid" != "x" ]
+then
+echo "Found and killing this process:"
+ps -p$proxy_pid -o pid -o args
+kill $proxy_pid
+else
+echo "Did not find the proxy SSH connection. :("
+echo "This is the running process I was looking for:"
+echo $ssh_proxy_command
+exit 1
+fi
+exit
+} # kill_ssh_proxy
+
+
+function setup_proxy {
+# COnfigure; setup the proxy in Network Preferences
 # THe off in the below command, means no authentication.
-echo "Setting up proxy to $proxy_host on the $proxy_interface interface"
-networksetup -setsocksfirewallproxy $proxy_interface $proxy_host off
-;;
-on|enable)
+echo "Setting up proxy to use ${listen_address}:${listen_port} on the $proxy_interface interface"
+networksetup -setsocksfirewallproxy $proxy_interface $listen_address $listen_port off
+echo "TO actually use this proxy, enable it with: $0 on"
+} # setup_proxy
+
+
+function enable_proxy {
 echo "ENabling the proxy already defined in Network Preferences..."
-echo "Remember you may need to adjust your browser to use $proxy_host"
+echo "Remember you may need to adjust your browser to use ${listen_address}:${listen_port}"
 # Enable the already defined SOCKS5 proxy in network preferences
 sudo networksetup setsocksfirewallproxystate $proxy_interface on
-;;
-off|disable)
+} # enable_proxy
+
+function disable_proxy {
 echo "Disabling the proxy defined in Network Preferences..."
-echo "Remember, you may need to adjust your browser to stop using a proxy of $proxy_host"
+echo "Remember, you may need to adjust your browser to stop using a proxy of ${listen_address}:${listen_port}"
 # Uncheck; disable SOCKS5 proxy in network preferences
 sudo networksetup setsocksfirewallproxystate $proxy_interface off
+} # disable_proxy
+
+
+function proxy_status {
+if ssh_proxy_running
+then
+echo "The SSH proxy to $ssh_host is running."
+else
+echo "There is no SSH proxy to $ssh_host"
+fi
+echo
+echo "OSX proxy settings are:"
+
+networksetup getsocksfirewallproxy $proxy_interface
+} # proxy_status
+
+
+# ##### Main PRogram #####
+
+case $1 in
+setup)
+setup_proxy
+;;
+on|enable)
+if  ssh_proxy_running
+then
+echo "The SSH proxy to $ssh_host is already running."
+else
+echo "The SSH proxy to $ssh_host is not running - starting it."
+start_ssh_proxy
+fi
+
+enable_proxy
+;;
+off|disable)
+disable_proxy
+kill_ssh_proxy
+;;
+killproxy)
+echo "Killing SSH connection to $ssH_host, but leaving OSX proxy settings unchanged."
+kill_ssh_proxy
 ;;
 state|status)
-networksetup getsocksfirewallproxy $proxy_interface
+proxy_status
 ;;
 *)
-echo "Usage: $0 setup|on|off|status"
-echo
-echo "THis script adjusts the proxy settings in Mac OSX Network Preferences."
-echo
-echo "Options:"
-echo
-echo "on|enable - Enable the proxy, this basically checks the proxy's checkbox in Network PReferences."
-echo "off|disable - Disable the proxy, this basically unchecks the proxy's checkbox in Network PReferences."
-echo "status|state - Display the state of the proxy configuration for the $proxy_interface interface."
-echo "setup - COnfigure a SOCKS5 proxy for the $proxy_interface interface, to $proxy_host - you can set the proxy_interface and proxy_host environment variable at the top of this script."
+# Display help and usage
+cat <<EOF
+THis script adjusts the proxy settings in Mac OSX Network Preferences, and manages an SSH connection which provides a SOCKS5 proxy.
+
+
+SSH connects to a remote host, and (using the -D option) provides a SOCS5 proxy on your machine. Your Mac OSX proxy preferences are configured to use that SOCKS5 proxy.
+
+Usage: $0 setup|on|off|killproxy|status
+
+"The config file $config_file will be read, you can define any variable you find at the top of this script, in the config file. You should atleast define ssh_host=your_ssh_proxy_host there."
+
+Options:
+
+setup - Configure Mac OSX SOCKS5 proxy preferences for the $proxy_interface interface, to $listen_address. The proxy is not enabled yet, use the on option for that.
+
+on|enable - Enable the proxy, this basically checks the proxy's checkbox in Network PReferences, and verifies the SSH connection is running.
+
+off|disable - Disable the proxy, this basically unchecks the proxy's checkbox in Network PReferences, and kills the SSH connection.
+
+killproxy - This kills the SSH connection to $ssh_host, but leaves the OSX proxy preferences unchanged. THis SSH connection provides the listener on ${listen_address}:${listen_port}. Killing the SSH connection without changing the OSX proxy preferences will leave any applications attempting to use the SOCS5 proxy unusable.
+
+status|state - Display the state of the proxy configuration for the $proxy_interface interface.
+
+
+You can set the ssh_host, proxy_interface, listen_address, and listen_port environment variable at the top of this script or in the $config_file config file.
+EOF
 ;;
 esac
 
