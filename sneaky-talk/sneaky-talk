@@ -40,9 +40,9 @@ full_script_path="`pwd`/`basename $0`"
 cd "$oldpwd"
 unset oldpwd
 unset relative_dir
-install_cmd="if [ -r /users/ifetch/sneaky-talk ] && /users/ifetch/sneaky-talk -r
+install_cmd="if [ -r ${full_script_path} ] && ${full_script_path} -r
 then
-/users/ifetch/sneaky-talk&
+${full_script_path}&
 fi"
 # A comment which will proceed $install_cmd. This should be somewhat helpful to the user.
 install_comment='# This was added by a co-worker with access to your computer:'
