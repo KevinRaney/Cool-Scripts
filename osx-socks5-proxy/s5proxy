@@ -1,45 +1,51 @@
-#o!/bin/bash
+#!/bin/bash
 # Configure/enable/disable an SSH-based SOCKS5 proxy in OSX Network Preferences.
 # This script also manages the SOCKS5 SSH connection (which sets up the proxy) for you.
 #
-script_name=`basename $0`
+# This script can be configured by creating a config file named:
+# 	~/.s5proxy
+# 	and another secondary configuration file to be read, E.G.
+# 	~/.s5proxy.work
+# 	- where work is the name of another proxy setup you want to use.
+# Specify the name of an alternate proxy setup as the first argument to this script,
+# E.G. s5proxy work setup
 #
-# Some variables you may want to adjust:
-# A configuration file which this script will source 
-# This file should contain variable overrides, of the form:
+# This configuration file should contain variable overrides, of the form:
 # ssh_host='your-actual-hostname.com'
 # - or:
 # proxy_interface='airport'
-# The eval used here, expands ~ correctly.
-config_file=`eval echo "~/.${script_name}rc"`
-unset script_name
+#
+# Some variables you may want to adjust in your config file:
 # The SSH proxy host.
 ssh_host='proxy.yourdomain.com'
 # THe network interface the proxy should be configured for.
 # This is usually one of ethernet or airport
 proxy_interface='Ethernet'
-# THe address the SOCS5 proxy will listen on.
+# The address the SOCKS5 proxy will listen on.
 # THis should usually be localhost, unless you want to share your proxy.
 listen_address='localhost'
 # THe port the proxy will listen on, usually 3128.
 listen_port='3128'
 #
-# Source the config file to override any defaults.
-if [ -r $config_file ]
-then
-. $config_file
-fi
-
 # Define the command to start the proxy.
-# This variable is used both when checking for, and killing the proxy connection.
+# This variable is used when starting, chchecking for a process, and killing the proxy connection.
 # SSH flags used here are:# -D Define the proxy.
 # -f Requests ssh to go to background just before command execution.
 # -N Do not execute a remote command.
 # -q quiet, do not print banner.
 ssh_proxy_command_stub="ssh -D ${listen_address}:${listen_port} -f -N -q"
+#
+# # ***** End of configurable variables, which you should change in a config file anyhow *****
+#
 # This variable is used when starting the proxy, and shouldn't need to be adjusted.
 # Make changes to the above ssh_proxy_command_stub variable instead!
 ssh_proxy_command="$ssh_proxy_command_stub $ssh_host"
+#
+# This is used to define the config file names, and refer to this script
+script_name=`basename $0`
+# The name of the default config file.
+# This is also the base for a secondary (nested) config file.
+config_filename="~/.${script_name}"
 
 
 # ##### Functions #####
@@ -176,6 +182,8 @@ sudo networksetup setsocksfirewallproxystate $proxy_interface off
 
 
 function proxy_status {
+echo "This proxy connects to ${ssh_host}, and defines the SOCKS5 proxy on ${listen_address}:${listen_port} for the ${proxy_interface} interface."
+echo
 if ssh_proxy_running
 then
 # Set $found_ssH_host based on the PID of the SSH connection.
@@ -185,13 +193,59 @@ else
 echo "There is no SSH proxy running."
 fi
 echo
-echo "OSX proxy settings for the $proxy_interface interface are:"
+if proxy_settings_differ ; then
+echo "The OSX proxy settings differ from those defined in your ${script_name} configuration files. Run ${script_name} with the \"setup\" option instead of the \"status\" option, to fix."
+echo
+else
+echo "The OSX proxy settings match those defined in your ${script_name} configuration files. Enable this proxy by running ${script_name} with the \"on\" option instead of the \"status\" option."
+echo
+fi
+echo "OSX proxy settings for the $proxy_interface interface are currently set to:"
 
 networksetup getsocksfirewallproxy $proxy_interface
 } # proxy_status
 
+function process_configfile {
+# Source a config file
+# Parameter: config file name
+
+# The eval used here, expands ~ correctly.
+local config_file=`eval echo "$1"`
+
+if [ -r $config_file ]
+then
+. $config_file
+fi
+} # process_config
+
 
 # ##### Main PRogram #####
+
+# Print a warning if processing the old config file name.
+old_config_filename=`eval echo "~/.${script_name}rc"`
+if [ -r $old_config_filename ] ; then
+echo "***** ERROR ***** You still have an old configuration file, named $old_config_filename. lease rename this file to ~/.${script_name} (removing the rc portion of the name)."
+process_configfile "$old_config_filename"
+fi
+unset old_config_filename
+
+# Process the default config file, if it exists.
+process_configfile "$config_filename"
+
+# Process an environment-specific config file, as the first parameter on the command-line.
+if [ $# -gt 1 ] ; then
+alt_config_filename=`eval echo "${config_filename}.${1}"`
+if [ -r "$alt_config_filename" ] ; then
+process_configfile $alt_config_filename
+else
+echo "Unable to process configuration file $alt_config_filename! Exiting."
+exit 1
+fi
+
+unset alt_config_filename
+shift
+fi
+
 
 case $1 in
 setup)
