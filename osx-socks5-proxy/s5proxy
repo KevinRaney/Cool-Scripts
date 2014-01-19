@@ -1,18 +1,22 @@
-#!/bin/bash
+#o!/bin/bash
 # Configure/enable/disable an SSH-based SOCKS5 proxy in OSX Network Preferences.
 # This script also manages the SOCKS5 SSH connection (which sets up the proxy) for you.
+#
+script_name=`basename $0`
 #
 # Some variables you may want to adjust:
 # A configuration file which this script will source 
 # This file should contain variable overrides, of the form:
 # ssh_host='your-actual-hostname.com'
+# - or:
+# proxy_interface='airport'
 # The eval used here, expands ~ correctly.
-script_name=`basename $0`
 config_file=`eval echo "~/.${script_name}rc"`
 unset script_name
-## The SSH proxy host.
+# The SSH proxy host.
 ssh_host='proxy.yourdomain.com'
 # THe network interface the proxy should be configured for.
+# This is usually one of ethernet or airport
 proxy_interface='Ethernet'
 # THe address the SOCS5 proxy will listen on.
 # THis should usually be localhost, unless you want to share your proxy.
@@ -27,12 +31,15 @@ then
 fi
 
 # Define the command to start the proxy.
-# This variable is used both when starting and killing the proxy connection.
+# This variable is used both when checking for, and killing the proxy connection.
 # SSH flags used here are:# -D Define the proxy.
 # -f Requests ssh to go to background just before command execution.
 # -N Do not execute a remote command.
 # -q quiet, do not print banner.
-ssh_proxy_command="ssh -D ${listen_address}:${listen_port} -f -N -q $ssh_host"
+ssh_proxy_command_stub="ssh -D ${listen_address}:${listen_port} -f -N -q"
+# This variable is used when starting the proxy, and shouldn't need to be adjusted.
+# Make changes to the above ssh_proxy_command_stub variable instead!
+ssh_proxy_command="$ssh_proxy_command_stub $ssh_host"
 
 
 # ##### Functions #####
@@ -56,6 +63,34 @@ fi
 } # ssh_proxy_running
 
 
+function proxy_settings_differ {
+# Determine whether Network Setup proxy settings, differ from those in this script.
+
+local networksetup_output=`networksetup getsocksfirewallproxy $proxy_interface`
+local current_listen_address=`echo "$networksetup_output" |egrep -i '^server: ' |awk '{print $2};'`
+local current_listen_port=`echo "$networksetup_output" |egrep -i '^port:' |awk '{print $2};'`
+
+if [ "$current_listen_address" == "$listen_address" -a "$current_listen_port" == "$listen_port" ] ; then
+# Settings are the same as our variables, return false
+return 1
+else
+return 0
+fi
+} # proxy_settings_differ
+
+
+function proxy_on {
+# Determine whether the proxy is already enabled in Network Setup.
+local networksetup_output=`networksetup getsocksfirewallproxy $proxy_interface`
+local current_proxy_state=`echo "$networksetup_output" |egrep -i '^enabled: '| awk '{print tolower($2)};'`
+if [ "$current_proxy_state" == "yes" ] ; then
+return 0
+else
+return 1
+fi
+} # proxy_on
+
+
 function start_ssh_proxy {
 # Start the SSH SOCS5 proxy.
 
@@ -73,22 +108,48 @@ echo "To kill this proxy connection later, run: $0 off or $0 killproxy"
 } # start_ssH_proxy
 
 
+function get_ssh_proxy_pid {
+# Get the PID of the SSH proxy connection.
+# THis sets the global ssh_proxy_pid variable.
+# We only look for $ssh_proxy_command_stub, in case $ssh_host changed since the last time we ran.
+
+ssh_proxy_pid=`ps -ax -o pid -o args |grep "$ssh_proxy_command_stub" |grep -iv grep|tail -1|awk '{print $1};'`
+} # get_ssh_proxy_pid
+
+
+function get_ssh_host {
+# Get the actual host which was SH'ed to.
+# This sets the global $found_ssh_host variable.
+
+get_ssh_proxy_pid
+
+if [ "x$ssh_proxy_pid" == "x" ] ; then
+# No process found
+found_ssh_host='(no connection found)'
+return 1
+else
+# The last field of the SSH command should be the hostname.
+found_ssh_host=`ps -p $ssh_proxy_pid -o args |tail -1|awk '{print $NF};'`
+return 0
+fi
+} # get_ssh_host
+
+
 function kill_ssh_proxy {
 # Kill the ssh command to the ssh (proxy) host.
-echo "FInding and killing ssh proxy to $ssh_host"
-local proxy_pid=`ps -ax -o pid -o args |grep "$ssh_proxy_command" |grep -iv grep|tail -1|awk '{print $1};'`
-if [ "x$proxy_pid" != "x" ]
+echo "FInding and killing ssh proxy listening on${listen_address}:${listen_port}"
+get_ssh_proxy_pid
+if [ "x$ssh_proxy_pid" != "x" ]
 then
 echo "Found and killing this process:"
-ps -p$proxy_pid -o pid -o args
-kill $proxy_pid
+ps -p$ssh_proxy_pid -o pid -o args
+kill $ssh_proxy_pid
 else
 echo "Did not find the proxy SSH connection. :("
 echo "This is the running process I was looking for:"
-echo $ssh_proxy_command
+echo $ssh_proxy_command_stub
 exit 1
 fi
-exit
 } # kill_ssh_proxy
 
 
@@ -102,15 +163,13 @@ echo "TO actually use this proxy, enable it with: $0 on"
 
 
 function enable_proxy {
-echo "ENabling the proxy already defined in Network Preferences..."
-echo "Remember you may need to adjust your browser to use ${listen_address}:${listen_port}"
+echo "ENabling the proxy already defined in Network Preferences.. - you wil be prompted for your sudo password."
 # Enable the already defined SOCKS5 proxy in network preferences
 sudo networksetup setsocksfirewallproxystate $proxy_interface on
 } # enable_proxy
 
 function disable_proxy {
-echo "Disabling the proxy defined in Network Preferences..."
-echo "Remember, you may need to adjust your browser to stop using a proxy of ${listen_address}:${listen_port}"
+echo "Disabling the proxy defined in Network Preferences.., but leaving settings intact. You will be prompted for your sudo password."
 # Uncheck; disable SOCKS5 proxy in network preferences
 sudo networksetup setsocksfirewallproxystate $proxy_interface off
 } # disable_proxy
@@ -119,12 +178,14 @@ sudo networksetup setsocksfirewallproxystate $proxy_interface off
 function proxy_status {
 if ssh_proxy_running
 then
-echo "The SSH proxy to $ssh_host is running."
+# Set $found_ssH_host based on the PID of the SSH connection.
+get_ssh_host
+echo "An SSH proxy to $found_ssh_host is running."
 else
-echo "There is no SSH proxy to $ssh_host"
+echo "There is no SSH proxy running."
 fi
 echo
-echo "OSX proxy settings are:"
+echo "OSX proxy settings for the $proxy_interface interface are:"
 
 networksetup getsocksfirewallproxy $proxy_interface
 } # proxy_status
@@ -134,25 +195,45 @@ networksetup getsocksfirewallproxy $proxy_interface
 
 case $1 in
 setup)
+# ONly change settings if they differ from those in this script.
+if proxy_settings_differ ; then
 setup_proxy
+else
+echo "The settings in Network Setup already match the desired settings - doing nothing."
+fi
 ;;
 on|enable)
 if  ssh_proxy_running
 then
-echo "The SSH proxy to $ssh_host is already running."
+# An SSH proxy is running, but is it the right one?
+get_ssh_host
+if [ "$found_ssh_host" == "$ssh_host" ] ; then
+echo "An SSH proxy to $ssh_host is already running."
+else
+echo "Killing a previous SSH proxy to $found_ssh_host first..."
+kill_ssh_proxy
+echo "Now starting an SSH proxy to $ssh_host."
+start_ssh_proxy
+fi
 else
 echo "The SSH proxy to $ssh_host is not running - starting it."
 start_ssh_proxy
 fi
 
+# Only enable the proxy if it is not already enabled.
+if ! proxy_on ; then
 enable_proxy
+else
+echo "The proxy is already enabled in Network Setup."
+fi
 ;;
 off|disable)
 disable_proxy
 kill_ssh_proxy
 ;;
 killproxy)
-echo "Killing SSH connection to $ssH_host, but leaving OSX proxy settings unchanged."
+echo "Killing SSH connection, but leaving OSX proxy settings unchanged and enabled."
+echo "You should either run $0 on, or start another SSH proxy connection, otherwise network traffic will fail!"
 kill_ssh_proxy
 ;;
 state|status)
