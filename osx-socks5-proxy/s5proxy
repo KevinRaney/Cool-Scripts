@@ -37,10 +37,6 @@ ssh_proxy_command_stub="ssh -D ${listen_address}:${listen_port} -f -N -q"
 #
 # # ***** End of configurable variables, which you should change in a config file anyhow *****
 #
-# This variable is used when starting the proxy, and shouldn't need to be adjusted.
-# Make changes to the above ssh_proxy_command_stub variable instead!
-ssh_proxy_command="$ssh_proxy_command_stub $ssh_host"
-#
 # This is used to define the config file names, and refer to this script
 script_name=`basename $0`
 # The name of the default config file.
@@ -246,6 +242,11 @@ unset alt_config_filename
 shift
 fi
 
+# Now that configs have been processed and $ssh_host is set,
+#   set the full $ssh_proxy_command.
+# This variable is used when starting the proxy, and shouldn't need to be adjusted.
+# Make changes to the above ssh_proxy_command_stub variable instead!
+ssh_proxy_command="$ssh_proxy_command_stub $ssh_host"
 
 case $1 in
 setup)
