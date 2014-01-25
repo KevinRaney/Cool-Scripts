@@ -139,7 +139,7 @@ fi
 
 function kill_ssh_proxy {
 # Kill the ssh command to the ssh (proxy) host.
-echo "FInding and killing ssh proxy listening on${listen_address}:${listen_port}"
+echo "Finding and killing SSH proxy listening on ${listen_address}:${listen_port}"
 get_ssh_proxy_pid
 if [ "x$ssh_proxy_pid" != "x" ]
 then
@@ -147,7 +147,7 @@ echo "Found and killing this process:"
 ps -p$ssh_proxy_pid -o pid -o args
 kill $ssh_proxy_pid
 else
-echo "Did not find the proxy SSH connection. :("
+echo "The SSH proxy connection could not be found. :("
 echo "This is the running process I was looking for:"
 echo $ssh_proxy_command_stub
 exit 1
@@ -158,14 +158,14 @@ fi
 function setup_proxy {
 # COnfigure; setup the proxy in Network Preferences
 # THe off in the below command, means no authentication.
-echo "Setting up proxy to use ${listen_address}:${listen_port} on the $proxy_interface interface"
+echo "Changing the $proxy_interface SOCKS Proxy settings to use ${listen_address}:${listen_port}"
 networksetup -setsocksfirewallproxy $proxy_interface $listen_address $listen_port off
-echo "TO actually use this proxy, enable it with: $0 on"
+echo "To actually use this proxy, enable it with: $0 on"
 } # setup_proxy
 
 
 function enable_proxy {
-echo "ENabling the proxy already defined in Network Preferences.. - you wil be prompted for your sudo password."
+echo "Enabling the proxy already defined in Network Preferences.. - you wil be prompted for your sudo password."
 # Enable the already defined SOCKS5 proxy in network preferences
 sudo networksetup setsocksfirewallproxystate $proxy_interface on
 } # enable_proxy
@@ -178,7 +178,7 @@ sudo networksetup setsocksfirewallproxystate $proxy_interface off
 
 
 function proxy_status {
-echo "This proxy connects to ${ssh_host}, and defines the SOCKS5 proxy on ${listen_address}:${listen_port} for the ${proxy_interface} interface."
+echo "This proxy configuration connects to ${ssh_host}, and defines the SOCKS proxy on ${listen_address}:${listen_port} for the ${proxy_interface} interface."
 echo
 if ssh_proxy_running
 then
@@ -190,13 +190,13 @@ echo "There is no SSH proxy running."
 fi
 echo
 if proxy_settings_differ ; then
-echo "The OSX proxy settings differ from those defined in your ${script_name} configuration files. Run ${script_name} with the \"setup\" option instead of the \"status\" option, to fix."
+echo "The OSX $proxy_interface SOCKS Proxy settings differ from those defined in your ${script_name} configuration files. Run ${script_name} with the \"setup\" option instead of the \"status\" option, to fix."
 echo
 else
-echo "The OSX proxy settings match those defined in your ${script_name} configuration files. Enable this proxy by running ${script_name} with the \"on\" option instead of the \"status\" option."
+echo "The OSX $proxy_interface SOCS Proxy settings match those defined in your ${script_name} configuration files. Enable this proxy by running ${script_name} with the \"on\" option instead of the \"status\" option."
 echo
 fi
-echo "OSX proxy settings for the $proxy_interface interface are currently set to:"
+echo "OSX $proxy_interface SOCKS Proxy settings are currently set to:"
 
 networksetup getsocksfirewallproxy $proxy_interface
 } # proxy_status
@@ -220,7 +220,7 @@ fi
 # Print a warning if processing the old config file name.
 old_config_filename=`eval echo "~/.${script_name}rc"`
 if [ -r $old_config_filename ] ; then
-echo "***** ERROR ***** You still have an old configuration file, named $old_config_filename. lease rename this file to ~/.${script_name} (removing the rc portion of the name)."
+echo "***** ERROR ***** You still have an old configuration file, named $old_config_filename. Please rename this file to ~/.${script_name} (removing the rc portion of the name)."
 process_configfile "$old_config_filename"
 fi
 unset old_config_filename
@@ -254,7 +254,7 @@ setup)
 if proxy_settings_differ ; then
 setup_proxy
 else
-echo "The settings in Network Setup already match the desired settings - doing nothing."
+echo "The OSX $proxy_interface SOCKS Proxy settings already match the desired settings - doing nothing."
 fi
 ;;
 on|enable)
@@ -279,7 +279,7 @@ fi
 if ! proxy_on ; then
 enable_proxy
 else
-echo "The proxy is already enabled in Network Setup."
+echo "The proxy is already enabled in OSX $proxy_interface Network Setup."
 fi
 ;;
 off|disable)
@@ -287,8 +287,8 @@ disable_proxy
 kill_ssh_proxy
 ;;
 killproxy)
-echo "Killing SSH connection, but leaving OSX proxy settings unchanged and enabled."
-echo "You should either run $0 on, or start another SSH proxy connection, otherwise network traffic will fail!"
+echo "Killing SSH connection, but leaving the OSX $proxy_interface SOCKS Proxy settings unchanged and enabled."
+echo "You should either run $0 on, or start another SSH proxy connection using ${listen_address}:${listen_port}, otherwise network traffic will fail!"
 kill_ssh_proxy
 ;;
 state|status)
