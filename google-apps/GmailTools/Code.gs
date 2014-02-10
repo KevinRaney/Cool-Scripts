@@ -8,6 +8,13 @@ function trashMessages(searchString) {
   }
 };
 
+function archiveMessages(searchString) {
+  var threads = GmailApp.search(searchString);
+  for (var i = 0; i < threads.length; i++) {
+    threads[i].moveToArchive();
+  }
+};
+
 function trashOldDailyAgendas() {
   trashMessages('(from:google OR to:google) subject:"Daily Agenda for" older_than:1d');
 };
