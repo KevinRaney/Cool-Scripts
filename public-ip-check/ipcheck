@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # Obtain the current (outside) public IP,
 #   if it has changed, send an email.
 # If sending the email fails, a log will be sent to syslog, but another mail wil not be attempted.
@@ -8,7 +8,8 @@ NOTIFY_ADDRESS='ivan@domain.com'
 # Web URL which returns a small page, with our current IP.
 # IF this service changes to somewhere else, you will also need to change the
 # line which sets the $current_ip variable in the code below.
-GET_IP_URL=http://dynamic.zoneedit.com/checkip.html
+#GET_IP_URL=http://dynamic.zoneedit.com/checkip.html
+GET_IP_URL=http://icanhazip.com
 # Path to the wget binary
 WGET=/usr/bin/wget
 # path to cut command
@@ -36,7 +37,8 @@ $logger "$0 -Failed to get IP from $GET_IP_URL"
 exit 1
 fi
 
-current_ip=`cat /tmp/$$.ip |$CUT -d: -f2|$CUT -d\< -f1|$CUT "-d " -f2`
+#current_ip=`cat /tmp/$$.ip |$CUT -d: -f2|$CUT -d\< -f1|$CUT "-d " -f2`
+current_ip=`cat /tmp/$$.ip`
 # To-Do: We should probably verify this is an Ip...
 # Get our previous IP from the cache file
 old_ip=`cat $LAST_IP_FILE`;
@@ -65,3 +67,4 @@ echo $current_ip >$LAST_IP_FILE
 
 # Remove file used to obtain current IP
 $RM /tmp/$$.ip
+
