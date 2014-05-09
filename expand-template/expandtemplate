@@ -1,0 +1,98 @@
+#!/usr/bin/perl
+# Read a "template" file and prompt for strings to substitute for variables in the file
+# Prompts are printed on standard error, and the new output withsubstitutions is send to standard output
+# Variables are text within brackets []
+# Prompts include the name of the variable with dashes (-) and underscores (_) turned into spaces.
+# The file name of the template to read is the only parameter to this script.
+# If a file exists with the same path and name as the templat,e with
+# and a $template_info_ext extension, it will be displayed before prompting for substitutions.
+
+$template_info_ext='txt'; # extension without leading period
+#$template_dir = "/path/to/templates/"; # dir that holds templates with trailing slash
+$template_dir = "./"; # dir that holds templates with trailing slash
+
+# ***** You shouldn't need to change anything beyond this point *****
+
+
+# Read the template into a global array
+sub read_template
+{
+open (TEMPLATE, "$template_dir$ARGV[0]") or
+die "Can not open template $template_dir$ARGV[0]. $!\n";
+foreach (<TEMPLATE>)
+{
+push (@template, $_);
+} # foreach
+close TEMPLATE;
+} # read_template
+
+# If it exists, open the template info file (template file name plus info extention)
+# and display it on dtandard error
+sub get_template_info
+{
+return (0) if (not open (INFO, "$template_dir$ARGV[0].$template_info_ext"));
+foreach (<INFO>)
+{
+print STDERR "$_";
+} # foreach
+close INFO;
+} # get_template_info
+
+
+# Return a list of variables. from a line of text
+sub get_variables
+{
+my @vars;
+
+(@vars) = ($_[0] =~ /\[(.+?)\]/g);
+return @vars;
+} # get_vars
+
+
+# Look through template array and prompt for data to substitute for any variables found
+sub get_data
+{
+my $input, @variables;
+
+foreach (@template)
+{
+@variables = get_variables ($_);
+
+foreach (@variables)
+{
+if (! exists $variables{$_})
+{
+print STDERR "$_: ";
+$input = <STDIN>;
+chop $input;
+$variables{$_} = $input;
+} # if variable not asked for yet
+} # foreach variable
+@variables = ();
+} # foreach
+} # get_data
+
+
+# Make our substitutions in the template
+sub fill_template
+{
+my $line;
+
+foreach $line (@template)
+{
+foreach (keys %variables)
+{
+$line =~ s/\[$_\]/$variables{$_}/g;
+} # foreach possible variable
+print $line;
+} #  foreach template
+} # fill_template
+
+
+# MAIN
+die "$0 requires a template file name...\nSee the directory $template_dir for templates.\n" if ($#ARGV == -1);
+read_template;
+get_template_info;
+get_data;
+fill_template;
+
