@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # Read a "template" file and prompt for strings to substitute for variables in the file
 # Prompts are printed on standard error, and the new output withsubstitutions is send to standard output
-# Variables are text within brackets []
+# Variables are text within double brackets [[]]
 # Prompts include the name of the variable with dashes (-) and underscores (_) turned into spaces.
 # The file name of the template to read is the only parameter to this script.
 # If a file exists with the same path and name as the templat,e with
@@ -44,7 +44,7 @@ sub get_variables
 {
 my @vars;
 
-(@vars) = ($_[0] =~ /\[(.+?)\]/g);
+(@vars) = ($_[0] =~ /\[\[(.+?)\]\]/g);
 return @vars;
 } # get_vars
 
@@ -82,7 +82,7 @@ foreach $line (@template)
 {
 foreach (keys %variables)
 {
-$line =~ s/\[$_\]/$variables{$_}/g;
+$line =~ s/\[\[$_\]\]/$variables{$_}/g;
 } # foreach possible variable
 print $line;
 } #  foreach template
@@ -91,8 +91,13 @@ print $line;
 
 # MAIN
 die "$0 requires a template file name...\nSee the directory $template_dir for templates.\n" if ($#ARGV == -1);
+while (@ARGV) {
 read_template;
 get_template_info;
+
+# Remove the current template filename from @ARGV, so the next loop iteration operates on the next template.
+shift @ARGV
+} # foreach @ARGV
+
 get_data;
 fill_template;
-
