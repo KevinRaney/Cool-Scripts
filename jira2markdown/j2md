@@ -1,0 +1,24 @@
+#!/usr/bin/perl
+# Convert Atlassian style markup, to markdown.
+# This script reads from standard input, and outputs markdown to standard output.
+# Usage: cat fromJira.txt |./j2md >file.md
+
+foreach (<STDIN>) {
+# Replace pound characters with numbers for numbered lists.
+# E.G. # becomes 1. 
+# E.G. ## becomes <tab>2. 
+# The digits used in the markdown numbered list does not matter, per the markdown spec.
+s/^(\#+) /'	' x (length($1)-1) . length($1) . '. '/e;
+
+# Replace h1. h2. Etc. with pound signs, for headings.
+s/^h(\d+). /'#' x $1 . ' '/e;
+
+# Adjust links.
+# Handle links with no pipe (|) and and no link name.
+s/\[([^|]+?)\]/\[$1\]($1)/;
+# Handle links with a pipe (|) and and a link name.
+s/\[(.+?)\|(.+?)\]/\[$1\]\($2\)/;
+
+print;
+}
+

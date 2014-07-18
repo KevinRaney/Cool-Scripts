@@ -1,0 +1,4 @@
+You will be prompted for some information, by this sample template.
+
+The template will then be re-output (to standard error) with your answers.
+
