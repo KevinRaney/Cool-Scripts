@@ -9,7 +9,3 @@ function trashOldJiraUnClosed() {
 function trashCOMSONags() {
   trashMessages('label:comso-nags older_than:1d');
 };
-
-function archiveOldNagiosErrors() {
-  archiveMessages('label:system-alerts-nagios older_than:1h in:inbox');
-}
