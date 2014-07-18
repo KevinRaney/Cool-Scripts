@@ -23,14 +23,16 @@ numDays - is the number of days in the future to look for event matches
   }
 }
 
-function autoInviteGuestAndMakePublic(calID,guestCalID,numDays,keywordList) {
+function autoInviteGuestAndMakePublic(calID,guestCalID,numDays,titlePrefix,keywordList) {
 /**************************************************************************************** 
 
-PURPOSE: Find events that are not private and contain provided keywords.
-         Then invite the provided guest calendar to the event and make the event public.
+PURPOSE: Find events that are not private match the titlePrefix and contain the provided 
+         keywords. Then invite the provided guest calendar to the event and make the event public.
 
 Paramaters:
 numDays - is the number of days in the future to look for event matches
+titlePrefix - is the string that must match the beginning of the event title, to ignore 
+              the titlePrefix match, pass a zero length string.
 keywordList - is a string containing words to match, separated by spaces
 
 ****************************************************************************************/
@@ -43,10 +45,11 @@ keywordList - is a string containing words to match, separated by spaces
   
   for (var i = 0; i < events.length; i++) {
     var title = events[i].getTitle();
-    
-    if (events[i].getVisibility() != CalendarApp.Visibility.PRIVATE) {
+
+    if (events[i].getVisibility() != CalendarApp.Visibility.PRIVATE && title.substring(0,titlePrefix.length).toLowerCase() == titlePrefix.toLowerCase()) {
       for (var w in keywords) {
         if (title.toLowerCase().indexOf(keywords[w].toLowerCase()) != -1) {
+          Logger.log("Found eligible event: %s",title);
           if (!events[i].getGuestByEmail(guestCalID)) {  
             events[i].addGuest(guestCalID);
           }
