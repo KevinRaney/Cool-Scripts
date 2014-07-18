@@ -20,7 +20,7 @@
 ssh_host='proxy.yourdomain.com'
 # THe network interface the proxy should be configured for.
 # This is usually one of ethernet or airport
-proxy_interface='Ethernet'
+proxy_interface='Thunderbolt Ethernet'
 # The address the SOCKS5 proxy will listen on.
 # THis should usually be localhost, unless you want to share your proxy.
 listen_address='localhost'
