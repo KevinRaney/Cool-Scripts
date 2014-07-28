@@ -19,8 +19,8 @@
 # The SSH proxy host.
 ssh_host='proxy.yourdomain.com'
 # THe network interface the proxy should be configured for.
-# This is usually one of ethernet or airport
-proxy_interface='Thunderbolt Ethernet'
+# This is usually one of ethernet, 'Thunderbolt Ethernet', or airport
+proxy_interface='Ethernet'
 # The address the SOCKS5 proxy will listen on.
 # THis should usually be localhost, unless you want to share your proxy.
 listen_address='localhost'
@@ -68,7 +68,7 @@ fi
 function proxy_settings_differ {
 # Determine whether Network Setup proxy settings, differ from those in this script.
 
-local networksetup_output=`networksetup getsocksfirewallproxy $proxy_interface`
+local networksetup_output=`networksetup getsocksfirewallproxy "$proxy_interface"`
 local current_listen_address=`echo "$networksetup_output" |egrep -i '^server: ' |awk '{print $2};'`
 local current_listen_port=`echo "$networksetup_output" |egrep -i '^port:' |awk '{print $2};'`
 
@@ -83,7 +83,7 @@ fi
 
 function proxy_on {
 # Determine whether the proxy is already enabled in Network Setup.
-local networksetup_output=`networksetup getsocksfirewallproxy $proxy_interface`
+local networksetup_output=`networksetup getsocksfirewallproxy "$proxy_interface"`
 local current_proxy_state=`echo "$networksetup_output" |egrep -i '^enabled: '| awk '{print tolower($2)};'`
 if [ "$current_proxy_state" == "yes" ] ; then
 return 0
@@ -159,7 +159,10 @@ function setup_proxy {
 # COnfigure; setup the proxy in Network Preferences
 # THe off in the below command, means no authentication.
 echo "Changing the $proxy_interface SOCKS Proxy settings to use ${listen_address}:${listen_port}"
-networksetup -setsocksfirewallproxy $proxy_interface $listen_address $listen_port off
+echo You will be prompted for your sudo password.
+sudo networksetup -setsocksfirewallproxy "$proxy_interface" $listen_address $listen_port off
+# By default, setsocksfirewallproxy enables the proxy, so disable it now.
+sudo networksetup setsocksfirewallproxystate "$proxy_interface" off
 echo "To actually use this proxy, enable it with: $0 on"
 } # setup_proxy
 
@@ -167,13 +170,13 @@ echo "To actually use this proxy, enable it with: $0 on"
 function enable_proxy {
 echo "Enabling the proxy already defined in Network Preferences.. - you wil be prompted for your sudo password."
 # Enable the already defined SOCKS5 proxy in network preferences
-sudo networksetup setsocksfirewallproxystate $proxy_interface on
+sudo networksetup setsocksfirewallproxystate "$proxy_interface" on
 } # enable_proxy
 
 function disable_proxy {
 echo "Disabling the proxy defined in Network Preferences.., but leaving settings intact. You will be prompted for your sudo password."
 # Uncheck; disable SOCKS5 proxy in network preferences
-sudo networksetup setsocksfirewallproxystate $proxy_interface off
+sudo networksetup setsocksfirewallproxystate "$proxy_interface" off
 } # disable_proxy
 
 
@@ -198,7 +201,7 @@ echo
 fi
 echo "OSX $proxy_interface SOCKS Proxy settings are currently set to:"
 
-networksetup getsocksfirewallproxy $proxy_interface
+networksetup getsocksfirewallproxy "$proxy_interface"
 } # proxy_status
 
 function process_configfile {
@@ -304,7 +307,7 @@ SSH connects to a remote host, and (using the -D option) provides a SOCS5 proxy 
 
 Usage: $0 setup|on|off|killproxy|status
 
-"The config file $config_file will be read, you can define any variable you find at the top of this script, in the config file. You should atleast define ssh_host=your_ssh_proxy_host there."
+"The config file $config_filename will be read, you can define any variable you find at the top of this script, in the config file. You should atleast define ssh_host=your_ssh_proxy_host there."
 
 Options:
 
