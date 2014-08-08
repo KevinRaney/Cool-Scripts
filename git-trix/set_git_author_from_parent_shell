@@ -1,0 +1,27 @@
+#!/bin/bash
+
+function set_git_author_from_parent_shell() {
+    email_domain='domain.com' # Could get this from the host we run on?
+    thisPID=$$
+    origUser=$(whoami)
+    thisUser=$origUser
+
+    while [ "$thisUser" = "$origUser" -o $thisUser = "root" ]
+    do
+        ARR=($(ps h -p$thisPID -ouser,ppid;))
+        thisUser="${ARR[0]}"
+        myPPid="${ARR[1]}"
+        thisPID=$myPPid
+    done
+
+    passwdEntry=`getent passwd "$thisUser"`
+    export GIT_AUTHOR_NAME=`echo "$passwdEntry" |cut -d: -f5`
+    export GIT_AUTHOR_EMAIL="`echo "$passwdEntry" |cut -d: -f1`@${email_domain}"
+    export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME"
+    export GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
+
+echo "Set git author and committer to: ${GIT_AUTHOR_NAME} <${GIT_AUTHOR_EMAIL}>"
+}
+
+set_git_author_from_parent_shell
+
