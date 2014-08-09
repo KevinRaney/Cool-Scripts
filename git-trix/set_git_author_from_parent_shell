@@ -1,26 +1,42 @@
 #!/bin/bash
 
 function set_git_author_from_parent_shell() {
-    email_domain='domain.com' # Could get this from the host we run on?
+    # This function walks up the process tree from your current PID, until it finds a process which is not run as the same user as the current PID, nor running as root.
+    # The variables GIT_AUTHOR_NAME, GIT_AUTHOR_EMAIL, GIT_COMMITTER_NAME, and GIT_COMMITTER_EMAIL are then set using the user's gecos field, and username@$email_domain.
+    # Set email_domain to what you want to be appended to the username.
+    # This uses the last two components of the domain, of your hostname.
+    email_domain=`hostname -f |awk -F. '{print $(NF-1)"."$(NF)};'`
+    # Having email_domain be dynamic may not be good for laptops, in which case:
+    # email_domain='domain.com'
+
     thisPID=$$
     origUser=$(whoami)
     thisUser=$origUser
 
-    while [ "$thisUser" = "$origUser" -o $thisUser = "root" ]
+    # IF $thisPID < 2, it is 1 or 0; we ran out of processes to walk.
+    # We also skip over the root user even if it is different than the current user.
+    while [ "$thisUser" = "$origUser" -o $thisUser = "root" -a $thisPID -gt 1 ]
     do
-        ARR=($(ps h -p$thisPID -ouser,ppid;))
-        thisUser="${ARR[0]}"
-        myPPid="${ARR[1]}"
-        thisPID=$myPPid
+      ARR=($(ps -p$thisPID -ouser= -oppid=;))
+      thisUser="${ARR[0]}"
+      myPPid="${ARR[1]}"
+      thisPID=$myPPid
     done
 
-    passwdEntry=`getent passwd "$thisUser"`
-    export GIT_AUTHOR_NAME=`echo "$passwdEntry" |cut -d: -f5`
-    export GIT_AUTHOR_EMAIL="`echo "$passwdEntry" |cut -d: -f1`@${email_domain}"
-    export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME"
-    export GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
-
-echo "Set git author and committer to: ${GIT_AUTHOR_NAME} <${GIT_AUTHOR_EMAIL}>"
+    # ONly set variables and output results, if a different, not-root user, was found.
+    if [ "x${thisUser}" != "x" -a "$thisUser" != "root" ] ; then
+      if [ "`uname -s`" = "Darwin" ] ; then
+        # OSX, use dscl as there is no getent.
+        passwdEntry="${thisUser}:*:x:Y:`dscl . read /users/ifetch realname|tail -1|cut -d: -f3`:..."
+      else
+        passwdEntry=`getent passwd "$thisUser"`
+      fi
+      export GIT_AUTHOR_NAME=`echo "$passwdEntry" |cut -d: -f5`
+      export GIT_AUTHOR_EMAIL="`echo "$passwdEntry" |cut -d: -f1`@${email_domain}"
+      export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME"
+      export GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
+      echo "Set git author and committer to: ${GIT_AUTHOR_NAME} <${GIT_AUTHOR_EMAIL}>"
+    fi
 }
 
 set_git_author_from_parent_shell
