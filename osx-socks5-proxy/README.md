@@ -4,7 +4,7 @@ Use the command-line to setup, enable, disable, or get the status of SOCKS5 prox
 ## Installation and Use
 * Copy the proxy script to a directory in your path.
 * Run the proxy script with no arguments, to get usage information.
-* Create a configuration file, ~/.s5proxyrc, containing atleast
+* Create a configuration file, ~/.s5proxy, containing atleast
 ssh_host="server.com"
 - This is the SSH server which your proxied traffic will go through.
 proxy_interface='airport'
