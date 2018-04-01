@@ -1,35 +1,34 @@
 #!/bin/bash
-# Obtain the current (outside) public IP,
-#   if it has changed, send an email.
+# Obtain the current (outside) public IP, if it has changed, send an email.
 # If sending the email fails, a log will be sent to syslog, but another mail wil not be attempted.
-#
+
 # Email address to notify, when IP changes.
-NOTIFY_ADDRESS='ivan@domain.com'
+NOTIFY_ADDRESS='root@localhost'
+
 # Web URL which returns a small page, with our current IP.
-# IF this service changes to somewhere else, you will also need to change the
+# If this service changes to somewhere else, you will also need to change the
 # line which sets the $current_ip variable in the code below.
-#GET_IP_URL=http://dynamic.zoneedit.com/checkip.html
-GET_IP_URL=http://icanhazip.com
-# Path to the wget binary
-WGET=/usr/bin/wget
+
 # path to cut command
 CUT=/bin/cut
+
 # path to the rm command
 RM=/bin/rm
+
 # path to logger command
 LOGGER=/usr/bin/logger
+
 # path to file which holds the last IP we had
 # You may need to create this file and chown it to the user who will be running this script.
 LAST_IP_FILE=/tmp/lastip.txt
-#
-#
-# Just in case this is the first time this script has been run, touch the 
-#   file holding the last IP
+
+# Just in case this is the first time this script has been run, touch the file holding the last IP
 # If you will be regularly running this as a user other than root, create this file and chown it to that user.
 touch $LAST_IP_FILE
 
 # Get our IP, put it in a temporary file
-$WGET -q -O /tmp/$$.ip $GET_IP_URL
+dig +short myip.opendns.com @resolver1.opendns.com > /tmp/$$.ip
+
 # if wget failed, log an error and exit
 if [ $? -gt 0 ]
 then
@@ -37,11 +36,11 @@ $logger "$0 -Failed to get IP from $GET_IP_URL"
 exit 1
 fi
 
-#current_ip=`cat /tmp/$$.ip |$CUT -d: -f2|$CUT -d\< -f1|$CUT "-d " -f2`
 current_ip=`cat /tmp/$$.ip`
 # To-Do: We should probably verify this is an Ip...
 # Get our previous IP from the cache file
 old_ip=`cat $LAST_IP_FILE`;
+
 # IF old_ip is nothing, we can not compare, we are just seeding the old_ip file for next time.
 if [ "x$old_ip" == "x" ]
 then
@@ -55,6 +54,7 @@ if [ "$current_ip" != "$old_ip" ]
 then
 $LOGGER -t `basename $0` "IP changed from $old_ip to $current_ip"
 echo "Old IP was $old_ip and new IP is $current_ip" |mail -s 'IP changed' $NOTIFY_ADDRESS
+
 # Log an error if sending email failed.
 if [ $? -gt 0 ]
 then
@@ -67,4 +67,3 @@ echo $current_ip >$LAST_IP_FILE
 
 # Remove file used to obtain current IP
 $RM /tmp/$$.ip
-
