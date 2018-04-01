@@ -1,10 +1,10 @@
 #!/bin/sh
 # proxy-ssh - run ssh or scp through a socks proxy with the help of netcat.
-# THIs avoids needing to SSH through the proxy host to reach other hosts on your network.
+# This avoids needing to SSH through the proxy host to reach other hosts on your network.
 #
 # Port 1080 is used as the proxy port, the netcat default and a standard.
 #
-# TO use this script:
+# To use this script:
 # 1. Copy the script to somewhere in your path
 # 2. ln -s proxy-ssh pssh;ln -s proxy-ssh pscp
 # 3. Set the proxy_host variable (below).
@@ -12,7 +12,7 @@
 #
 # Some variables you may want to adjust:
 # THe proxy host:
-proxy_host='159.189.177.137'
+proxy_host='127.0.0.1'
 # Define the command to start the proxy.
 # This variable is used both when starting and killing the proxy connection.
 # SSH flags used here are:# -D Define the proxy.
@@ -23,7 +23,7 @@ proxy_command="ssh -D localhost:1080 -f -N -q $proxy_host"
 
 
 # Function to see whether the proxy connection is listening on localhost:1080
-# IF it is not, start the proxy.
+# If it is not, start the proxy.
 function verify_proxy_connection () {
 # Look for localhost:1080 listening in netstat output.
 netstat -an |grep '127.0.0.1.1080         *.*                    LISTEN' >/dev/null
@@ -83,5 +83,3 @@ echo "ERROR: This script was called as $0, but was expecting to be called either
 exit 1
 ;;
 esac
-
-
